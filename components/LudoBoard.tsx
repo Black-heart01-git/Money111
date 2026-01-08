@@ -19,7 +19,6 @@ interface LudoBoardProps {
   theme?: string;
 }
 
-// 15x15 Precise Coordinate Mapping
 const TRACK_COORDS: { x: number; y: number }[] = [
   { x: 6, y: 1 }, { x: 6, y: 2 }, { x: 6, y: 3 }, { x: 6, y: 4 }, { x: 6, y: 5 },
   { x: 5, y: 6 }, { x: 4, y: 6 }, { x: 3, y: 6 }, { x: 2, y: 6 }, { x: 1, y: 6 }, { x: 0, y: 6 },
@@ -161,7 +160,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setActiveDie(null);
 
     if (multiplayerMode === 'ai' && nextTurn === 'blue') {
-      simulateAi();
+      setTimeout(() => simulateAi(), 1000);
     } else {
       const turnMsg = nextTurn === myColor ? "Your turn! Shake it up!" : `Waiting for ${nextTurn}...`;
       setMessage(turnMsg);
@@ -269,7 +268,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       : (52 - START_POS[piece.color]) + piece.pos;
   };
 
-  const animateMove = async (pieceId: string, steps: number, remote: boolean = false) => {
+  const animateMove = async (pieceId: string, steps: number, remote: boolean = false): Promise<{captured: boolean, reachedHome: boolean}> => {
     setMovingPieceId(pieceId);
     if (!remote) broadcastEvent('PIECE_MOVE', { pieceId, steps });
 
@@ -279,7 +278,6 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     
     for (let i = 0; i < currentSteps; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
-      // Subtle movement click
       playSound(1200, 'sine', 0.015, 0.03);
       
       setPieces(prev => prev.map(p => {
@@ -295,6 +293,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       }));
     }
     
+    let captureOccurred = false;
     setPieces(prev => {
       const movedPiece = prev.find(p => p.id === pieceId)!;
       if (movedPiece.pos === 58) {
@@ -318,6 +317,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         });
         
         if (victimId) {
+          captureOccurred = true;
           capturedInThisMove = true;
           setCapturedPieceId(victimId);
           playSound(150, 'sawtooth', 0.4, 0.08);
@@ -332,9 +332,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setMovingPieceId(null);
     
     if (!remote) {
-      // BONUS RULE: Double 6, Capture, or Reaching Home
       const isDoubleSix = (dice[0] === 6 && dice[1] === 6);
-      
       if (isDoubleSix || capturedInThisMove || reachedHomeInThisMove) {
          setHasRolled(false);
          setActiveDie(null);
@@ -347,6 +345,8 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         setTimeout(rotateTurn, 800);
       }
     }
+
+    return { captured: captureOccurred, reachedHome: reachedHomeInThisMove };
   };
 
   const handlePieceClick = async (piece: Piece) => {
@@ -367,31 +367,101 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
   };
 
   const simulateAi = async () => {
-    setMessage("AI is calculating...");
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setMessage("AI thinking...");
+    await new Promise(resolve => setTimeout(resolve, 800));
     setIsRolling(true);
     const tumbleInterval = setInterval(() => {
       setDice([Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
     }, 80);
 
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     clearInterval(tumbleInterval);
     const r1 = Math.floor(Math.random() * 6) + 1;
     const r2 = Math.floor(Math.random() * 6) + 1;
     setDice([r1, r2]);
     setIsRolling(false);
     speak(`AI rolled ${r1} and ${r2}.`);
-    
-    const aiPieces = pieces.filter(p => p.color === 'blue');
-    const moveBoth = aiPieces.find(p => canMove(p, r1 + r2));
-    const move1 = aiPieces.find(p => canMove(p, r1));
-    const move2 = aiPieces.find(p => canMove(p, r2));
 
-    if (moveBoth) await animateMove(moveBoth.id, r1 + r2, true);
-    else if (move1) await animateMove(move1.id, r1, true);
-    else if (move2) await animateMove(move2.id, r2, true);
+    const aiPieces = pieces.filter(p => p.color === 'blue');
+    const isDoubleSix = (r1 === 6 && r2 === 6);
+
+    // AI logic: 
+    // 1. Try moving combined total for a capture or home
+    // 2. Try moving pieces separately to maximize strategic position
     
-    rotateTurn();
+    let usedR1 = false;
+    let usedR2 = false;
+    let captureBonus = false;
+    let homeBonus = false;
+
+    const findBestMove = (availableSteps: number) => {
+      // Priority: Capture > Home > Exit Base > Forward
+      const captureMove = aiPieces.find(p => {
+         if (!canMove(p, availableSteps)) return false;
+         // Peek next position
+         let nextPos = p.pos;
+         if (p.pos === -1) nextPos = START_POS[p.color];
+         else if (p.pos < 52) nextPos = (p.pos + availableSteps) % 52;
+         return nextPos >= 0 && nextPos < 52 && !SAFE_SQUARES.includes(nextPos) && 
+                pieces.some(op => op.color !== 'blue' && op.pos === nextPos);
+      });
+      if (captureMove) return { piece: captureMove, type: 'capture' };
+
+      const homeMove = aiPieces.find(p => canMove(p, availableSteps) && p.pos + availableSteps === 58);
+      if (homeMove) return { piece: homeMove, type: 'home' };
+
+      const baseExitMove = aiPieces.find(p => p.pos === -1 && availableSteps === 6);
+      if (baseExitMove) return { piece: baseExitMove, type: 'exit' };
+
+      const forwardMove = aiPieces.find(p => canMove(p, availableSteps));
+      if (forwardMove) return { piece: forwardMove, type: 'forward' };
+
+      return null;
+    };
+
+    // Try combined move first if strategic
+    const combinedMove = findBestMove(r1 + r2);
+    if (combinedMove && (combinedMove.type === 'capture' || combinedMove.type === 'home')) {
+      const result = await animateMove(combinedMove.piece.id, r1 + r2, true);
+      captureBonus = result.captured;
+      homeBonus = result.reachedHome;
+      usedR1 = true;
+      usedR2 = true;
+    } else {
+      // Try Die 1
+      const move1 = findBestMove(r1);
+      if (move1) {
+        const result = await animateMove(move1.piece.id, r1, true);
+        captureBonus = captureBonus || result.captured;
+        homeBonus = homeBonus || result.reachedHome;
+        usedR1 = true;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Try Die 2 (Re-query pieces as state changed)
+      const move2 = findBestMove(r2);
+      if (move2) {
+        const result = await animateMove(move2.piece.id, r2, true);
+        captureBonus = captureBonus || result.captured;
+        homeBonus = homeBonus || result.reachedHome;
+        usedR2 = true;
+      }
+    }
+
+    if (!usedR1 && !usedR2) {
+      speak("AI has no moves.");
+      await new Promise(resolve => setTimeout(resolve, 800));
+      rotateTurn();
+    } else {
+      if (isDoubleSix || captureBonus || homeBonus) {
+        const msg = isDoubleSix ? "AI double six! Bonus turn." : captureBonus ? "AI captured! Bonus turn." : "AI goal! Bonus turn.";
+        setMessage(msg);
+        speak(msg);
+        setTimeout(() => simulateAi(), 1000);
+      } else {
+        rotateTurn();
+      }
+    }
   };
 
   const getVisualCoords = (p: Piece) => {
