@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 
 const AdminPanel: React.FC = () => {
-  const [activeView, setActiveView] = useState<'users' | 'finance' | 'games'>('users');
+  const [activeView, setActiveView] = useState<'users' | 'finance' | 'games' | 'settings'>('users');
+  const [autoConnect, setAutoConnect] = useState(true);
 
   const stats = [
     { label: 'Total Users', value: '1,284', trend: '+12%', color: 'text-blue-600' },
@@ -12,7 +13,7 @@ const AdminPanel: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 pb-12">
       <nav className="bg-gray-900 text-white px-6 py-4 flex justify-between items-center shadow-xl">
         <div className="flex items-center gap-4">
           <span className="font-brand font-black text-2xl tracking-tighter text-naija-green">MONEY11</span>
@@ -37,12 +38,28 @@ const AdminPanel: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex gap-4">
-          {['users', 'finance', 'games'].map(tab => (
+        <div className="bg-naija-green/10 border-2 border-naija-green p-6 rounded-3xl flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">🤖</div>
+            <div>
+              <h3 className="font-black text-lg">Auto-Connect Simulation</h3>
+              <p className="text-sm text-gray-600 font-medium">When ON, matches users to AI after 30 seconds of inactivity.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setAutoConnect(!autoConnect)}
+            className={`w-20 h-10 rounded-full transition-all relative p-1 ${autoConnect ? 'bg-naija-green' : 'bg-gray-300'}`}
+          >
+            <div className={`w-8 h-8 bg-white rounded-full shadow-md transition-all ${autoConnect ? 'translate-x-10' : 'translate-x-0'}`}></div>
+          </button>
+        </div>
+
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {['users', 'finance', 'games', 'settings'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveView(tab as any)}
-              className={`px-6 py-3 rounded-xl font-bold transition-all capitalize ${
+              className={`px-6 py-3 rounded-xl font-bold transition-all capitalize whitespace-nowrap ${
                 activeView === tab ? 'bg-naija-green text-white shadow-lg' : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -65,7 +82,7 @@ const AdminPanel: React.FC = () => {
                 <tr>
                   <th className="px-6 py-4">ID / User</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Amount / Balance</th>
+                  <th className="px-6 py-4">Stake History</th>
                   <th className="px-6 py-4">Activity Date</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -76,10 +93,10 @@ const AdminPanel: React.FC = () => {
                     <td className="px-6 py-4 font-bold text-gray-700">#USER-293{i}<br/><span className="text-xs text-gray-400 font-normal">081234567{i}</span></td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${i % 2 === 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {i % 2 === 0 ? 'Active' : 'Pending'}
+                        {i % 2 === 0 ? 'In Game' : 'Waiting'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-black">₦{ (i * 12500).toLocaleString() }</td>
+                    <td className="px-6 py-4 font-black">₦{ (i * 2500).toLocaleString() }</td>
                     <td className="px-6 py-4 text-gray-500">2024-10-1{i} 14:23</td>
                     <td className="px-6 py-4 text-right">
                       <button className="text-blue-600 font-bold hover:underline mr-4">Edit</button>

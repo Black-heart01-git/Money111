@@ -8,6 +8,8 @@ export const COLORS = {
   accent: '#FFD700', // Gold
 };
 
+export const STAKE_OPTIONS = [500, 1000, 1500, 2000, 3000, 5000, 7500, 10000];
+
 export const GAMES = [
   {
     id: 'ludo',
@@ -15,7 +17,7 @@ export const GAMES = [
     description: 'Player vs AI / Multiplayer classic',
     icon: '🎲',
     color: 'bg-blue-500',
-    minEntry: 100
+    minEntry: 500
   },
   {
     id: 'whot',
@@ -23,7 +25,7 @@ export const GAMES = [
     description: 'The ultimate Nigerian card game',
     icon: '🃏',
     color: 'bg-red-500',
-    minEntry: 200
+    minEntry: 500
   },
   {
     id: 'music',
@@ -31,7 +33,7 @@ export const GAMES = [
     description: 'Listen and answer correctly to win',
     icon: '🎵',
     color: 'bg-purple-500',
-    minEntry: 50
+    minEntry: 500
   },
   {
     id: 'plinko',
@@ -39,7 +41,7 @@ export const GAMES = [
     description: 'Drop the ball, win Naira prizes',
     icon: '💰',
     color: 'bg-green-600',
-    minEntry: 50
+    minEntry: 500
   },
   {
     id: 'predict',
@@ -55,7 +57,7 @@ export const GAMES = [
     description: 'Traditional board game mastery',
     icon: '🕳️',
     color: 'bg-orange-600',
-    minEntry: 100
+    minEntry: 500
   },
   {
     id: 'spin',

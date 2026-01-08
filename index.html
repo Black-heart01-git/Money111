@@ -15,10 +15,24 @@
         .font-brand {
             font-family: 'Montserrat', sans-serif;
         }
-        /* Custom Green for Nigerian Flag */
         .bg-naija-green { background-color: #008751; }
         .text-naija-green { color: #008751; }
         .border-naija-green { border-color: #008751; }
+
+        @keyframes pop {
+          0% { transform: scale(0.95); }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        .toon-shadow {
+          box-shadow: 0 8px 0 rgba(0,0,0,0.1);
+        }
+        .toon-shadow:active {
+          box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+          transform: translateY(6px);
+        }
     </style>
 <script type="importmap">
 {
