@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, GameType } from '../types';
 import { GAMES, STAKE_OPTIONS } from '../constants';
 import { generateAfrobeatsQuestions } from '../services/geminiService';
+import LudoBoard from './LudoBoard';
 
 interface GameContainerProps {
   gameId: string;
@@ -26,14 +27,12 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameId, user, isDark, onC
   
   const gameInfo = GAMES.find(g => g.id === gameId);
 
-  // Lobby Timer Logic
   useEffect(() => {
     let interval: any;
     if (gameState === 'lobby') {
       interval = setInterval(() => {
         setLobbyTime(prev => {
           const next = prev + 1;
-          // Match logic
           if (next >= 30 && !opponent) {
             setOpponent('AI Master');
           }
@@ -74,16 +73,19 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameId, user, isDark, onC
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(c => c + 1);
     } else {
-      finishGame();
+      finishGame(score >= 3);
     }
   };
 
-  const finishGame = () => {
+  const finishGame = (win: boolean) => {
     setGameState('result');
-    // Win logic: double the stake if score is good
-    const isWin = score >= 3; 
-    if (isWin) onWin(selectedStake);
-    else onLose(selectedStake);
+    if (win) {
+      setScore(5); // Simulate max score for Ludo win UI
+      onWin(selectedStake);
+    } else {
+      setScore(0);
+      onLose(selectedStake);
+    }
   };
 
   const renderStakeSelection = () => (
@@ -176,6 +178,14 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameId, user, isDark, onC
         {gameState === 'stake_selection' && renderStakeSelection()}
         {gameState === 'lobby' && renderLobby()}
         
+        {gameState === 'playing' && gameId === 'ludo' && (
+          <LudoBoard 
+            isDark={isDark} 
+            onWin={() => finishGame(true)} 
+            onLose={() => finishGame(false)} 
+          />
+        )}
+
         {gameState === 'playing' && gameId === 'music' && (
           <div className="p-6 flex flex-col justify-center space-y-6">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl border-b-8 border-naija-green">
@@ -199,18 +209,14 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameId, user, isDark, onC
           </div>
         )}
 
-        {gameState === 'playing' && gameId !== 'music' && (
+        {gameState === 'playing' && gameId !== 'music' && gameId !== 'ludo' && (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6">
-             <div className="text-8xl animate-bounce">🎲</div>
+             <div className="text-8xl animate-bounce">🎰</div>
              <div className="space-y-2">
                <h3 className="text-2xl font-black">Playing against {opponent}</h3>
-               <p className="text-gray-500">The first player to reach the goal wins the stake!</p>
+               <p className="text-gray-500">Loading custom engine for {gameInfo?.name}...</p>
              </div>
-             <div className="grid grid-cols-2 gap-4 w-full">
-                <div className="bg-blue-500 p-4 rounded-2xl text-white font-black">YOU: Active</div>
-                <div className="bg-red-500 p-4 rounded-2xl text-white font-black">AI: Thinking...</div>
-             </div>
-             <button onClick={finishGame} className="bg-naija-green text-white px-8 py-4 rounded-3xl font-black">SIMULATE WIN (DEBUG)</button>
+             <button onClick={() => finishGame(true)} className="bg-naija-green text-white px-8 py-4 rounded-3xl font-black">SIMULATE WIN</button>
           </div>
         )}
 
