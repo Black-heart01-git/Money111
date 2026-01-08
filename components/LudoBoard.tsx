@@ -15,6 +15,8 @@ interface LudoBoardProps {
   isDark: boolean;
   multiplayerMode?: 'ai' | 'online' | 'local';
   myColor?: 'green' | 'blue';
+  playerAvatar?: string;
+  theme?: string;
 }
 
 // 15x15 Precise Coordinate Mapping
@@ -54,7 +56,9 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
   onLose, 
   isDark, 
   multiplayerMode = 'ai', 
-  myColor = 'green' 
+  myColor = 'green',
+  playerAvatar = 'https://unavatar.io/twitter/leomessisite',
+  theme = 'wood'
 }) => {
   const COLORS = {
     blue: { main: '#0284c7', bg: 'bg-sky-500', name: 'PLAYER 2' },
@@ -63,13 +67,8 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     yellow: { main: '#f59e0b', bg: 'bg-amber-400', name: 'BOT TEAM' },
   };
 
-  const THEMES = {
-    green: [
-      'https://unavatar.io/twitter/leomessisite',
-      'https://unavatar.io/twitter/cristiano',
-      'https://unavatar.io/twitter/kmbappe',
-      'https://unavatar.io/twitter/mosalah'
-    ],
+  const THEMES: Record<string, string[]> = {
+    green: Array(4).fill(playerAvatar),
     blue: [
       'https://api.dicebear.com/7.x/adventurer/svg?seed=Naruto',
       'https://api.dicebear.com/7.x/adventurer/svg?seed=Luffy',
@@ -89,6 +88,16 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       'https://api.dicebear.com/7.x/bottts/svg?seed=Bot4'
     ],
   };
+
+  if (myColor === 'blue') {
+    THEMES.blue = Array(4).fill(playerAvatar);
+    THEMES.green = [
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Naruto',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Luffy',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Goku',
+      'https://api.dicebear.com/7.x/adventurer/svg?seed=Zoro'
+    ];
+  }
 
   const channel = useRef<BroadcastChannel | null>(null);
   const [pieces, setPieces] = useState<Piece[]>(() => {
@@ -156,11 +165,10 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     } else {
       const turnMsg = nextTurn === myColor ? "Your turn! Shake it up!" : `Waiting for ${nextTurn}...`;
       setMessage(turnMsg);
-      if (nextTurn === myColor) speak("It is your turn.");
+      if (nextTurn === myColor) speak("It's your turn.");
     }
   }, [turn, multiplayerMode, myColor]);
 
-  // Handle Multiplayer Messages
   useEffect(() => {
     if (multiplayerMode === 'online') {
       channel.current = new BroadcastChannel('money11_ludo');
@@ -194,9 +202,9 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     if (turn !== myColor || isRolling || isShakingCup || hasRolled || movingPieceId) return;
     
     setIsShakingCup(true);
-    setMessage("Shaking...");
+    setMessage("Shaking the cup...");
     playSound(150, 'square', 0.4, 0.05);
-    speak("Shaking the cup.");
+    speak("Shaking.");
 
     setTimeout(() => {
       setIsShakingCup(false);
@@ -227,15 +235,15 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         const canMoveBoth = myPieces.some(p => canMove(p, r1 + r2));
 
         if (!canMove1 && !canMove2 && !canMoveBoth) {
-          setMessage(`No valid moves!`);
-          speak("No valid moves. Skipping turn.");
+          setMessage(`No valid moves! Pass turn.`);
+          speak("No possible moves. Turn skipping.");
           setTimeout(() => {
             const nextTurn = turn === 'green' ? 'blue' : 'green';
             broadcastEvent('TURN_CHANGE', { nextTurn });
             rotateTurn();
           }, 1500);
         } else {
-          setMessage("Choose your move!");
+          setMessage("Select your token!");
         }
       }, 1000);
     }, 1000);
@@ -266,12 +274,13 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     if (!remote) broadcastEvent('PIECE_MOVE', { pieceId, steps });
 
     let capturedInThisMove = false;
+    let reachedHomeInThisMove = false;
     let currentSteps = steps;
     
     for (let i = 0; i < currentSteps; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
-      // Subtle click sound per step
-      playSound(800 + (i * 5), 'sine', 0.02, 0.04); 
+      // Subtle movement click
+      playSound(1200, 'sine', 0.015, 0.03);
       
       setPieces(prev => prev.map(p => {
         if (p.id !== pieceId) return p;
@@ -289,8 +298,9 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setPieces(prev => {
       const movedPiece = prev.find(p => p.id === pieceId)!;
       if (movedPiece.pos === 58) {
+        reachedHomeInThisMove = true;
         playSound(880, 'sine', 0.3, 0.1);
-        speak("Goal! Piece reached home!");
+        speak("Home run!");
         if (movedPiece.color === myColor) {
            const finished = prev.filter(p => p.color === myColor && p.pos === 58).length + 1;
            if (finished === 4) onWin();
@@ -311,7 +321,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
           capturedInThisMove = true;
           setCapturedPieceId(victimId);
           playSound(150, 'sawtooth', 0.4, 0.08);
-          speak("Critical Hit! Captured!");
+          speak("Critical capture!");
           setTimeout(() => setCapturedPieceId(null), 1000);
         }
         return nextPieces;
@@ -322,14 +332,15 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setMovingPieceId(null);
     
     if (!remote) {
-      // Bonus turn only on Double 6 or Capture
+      // BONUS RULE: Double 6, Capture, or Reaching Home
       const isDoubleSix = (dice[0] === 6 && dice[1] === 6);
       
-      if (isDoubleSix || capturedInThisMove) {
+      if (isDoubleSix || capturedInThisMove || reachedHomeInThisMove) {
          setHasRolled(false);
          setActiveDie(null);
-         setMessage(isDoubleSix ? "Double Six! Roll again!" : "Captured! Bonus Turn!");
-         speak(isDoubleSix ? "Double six! You get another roll." : "You captured a piece! Take another turn.");
+         const reason = isDoubleSix ? "Double Six! Bonus roll." : capturedInThisMove ? "Captured! Bonus roll." : "Goal! Bonus roll.";
+         setMessage(reason);
+         speak(reason);
       } else {
         const nextTurn = turn === 'green' ? 'blue' : 'green';
         broadcastEvent('TURN_CHANGE', { nextTurn });
@@ -351,12 +362,12 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       await animateMove(piece.id, steps);
     } else {
       playSound(100, 'square', 0.2, 0.05);
-      speak("Invalid move.");
+      speak("Move not allowed.");
     }
   };
 
   const simulateAi = async () => {
-    setMessage("AI thinking...");
+    setMessage("AI is calculating...");
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsRolling(true);
     const tumbleInterval = setInterval(() => {
@@ -369,6 +380,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     const r2 = Math.floor(Math.random() * 6) + 1;
     setDice([r1, r2]);
     setIsRolling(false);
+    speak(`AI rolled ${r1} and ${r2}.`);
     
     const aiPieces = pieces.filter(p => p.color === 'blue');
     const moveBoth = aiPieces.find(p => canMove(p, r1 + r2));
@@ -402,19 +414,37 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     return { x: TRACK_COORDS[p.pos].x + 0.5, y: TRACK_COORDS[p.pos].y + 0.5 };
   };
 
+  const getBoardClass = () => {
+    switch(theme) {
+      case 'marble': return 'board-theme-marble border-gray-800';
+      case 'cyber': return 'board-theme-cyber border-blue-900 ring-4 ring-cyber-blue/20';
+      default: return 'board-theme-wood border-[#2b1b17]';
+    }
+  };
+
+  const getCellClass = (isSafe: boolean) => {
+    if (theme === 'cyber') {
+      return `border-white/5 ${isSafe ? 'bg-cyber-blue/20' : 'bg-white/5'}`;
+    }
+    if (theme === 'marble') {
+      return `border-white/10 ${isSafe ? 'bg-gray-400/20' : 'bg-white/5'}`;
+    }
+    return `border-black/10 ${isSafe ? 'bg-yellow-200/40' : 'bg-white/10'}`;
+  };
+
   return (
     <div className={`flex flex-col items-center justify-center min-h-[95vh] w-full max-w-2xl mx-auto p-4 select-none transition-transform duration-100 ${isShakingCup ? 'scale-[1.01]' : ''}`}>
       <div className={`mb-4 px-6 py-4 rounded-3xl w-full text-center font-black text-lg shadow-xl transition-all border-b-8 border-naija-green/30 ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
         <div className="flex justify-between items-center mb-1">
-          <span className="text-[10px] text-naija-green uppercase tracking-tighter font-black">
-            {multiplayerMode === 'online' ? `Lobby: ${myColor === 'green' ? 'MASTER' : 'GUEST'}` : 'MONEY11 ARENA'}
+          <span className={`text-[10px] uppercase tracking-tighter font-black ${theme === 'cyber' ? 'text-cyber-blue' : 'text-naija-green'}`}>
+            {multiplayerMode === 'online' ? `Session: ${myColor === 'green' ? 'HOST' : 'PEER'}` : `MONEY11 ${theme.toUpperCase()}`}
           </span>
-          <span className="text-[10px] text-blue-400 uppercase tracking-tighter">Live Match</span>
+          <span className="text-[10px] text-blue-400 uppercase tracking-tighter">Pro Tournament</span>
         </div>
         {message}
       </div>
 
-      <div className={`relative w-full aspect-square border-[16px] rounded-[60px] shadow-2xl p-1 overflow-hidden transition-colors board-brown-anim border-[#3e2723] ${isShakingCup ? 'animate-dice-shake' : ''}`}>
+      <div className={`relative w-full aspect-square border-[16px] rounded-[60px] shadow-2xl p-1 overflow-hidden transition-all duration-700 ${getBoardClass()} ${isShakingCup ? 'animate-dice-shake' : ''}`}>
         {Object.entries(COLORS).map(([color, cfg]) => (
           <div key={color} className={`absolute w-[40%] h-[40%] ${cfg.bg} flex flex-col items-center justify-center rounded-[40px] border-8 border-white/30 shadow-inner overflow-hidden`}
             style={{ 
@@ -433,21 +463,21 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         ))}
 
         {TRACK_COORDS.map((c, i) => (
-          <div key={i} className={`absolute w-[6.66%] h-[6.66%] border border-black/10 flex items-center justify-center ${SAFE_SQUARES.includes(i) ? 'bg-yellow-200/30' : 'bg-white/20'}`}
+          <div key={i} className={`absolute w-[6.66%] h-[6.66%] border flex items-center justify-center transition-colors ${getCellClass(SAFE_SQUARES.includes(i))}`}
             style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}>
-            {SAFE_SQUARES.includes(i) && <span className="text-[8px] opacity-30">⭐</span>}
+            {SAFE_SQUARES.includes(i) && <span className={`text-[8px] opacity-30 ${theme === 'cyber' ? 'text-white' : ''}`}>⭐</span>}
           </div>
         ))}
 
         {Object.entries(HOME_STRETCH).map(([color, cells]) => (
           cells.map((c, i) => (
-            <div key={`${color}-${i}`} className={`absolute w-[6.66%] h-[6.66%] border border-black/10 ${COLORS[color as keyof typeof COLORS].bg} opacity-50`}
+            <div key={`${color}-${i}`} className={`absolute w-[6.66%] h-[6.66%] border border-black/5 ${COLORS[color as keyof typeof COLORS].bg} opacity-50`}
               style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}
             />
           ))
         ))}
 
-        <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] z-50 bg-white shadow-2xl rounded-3xl flex flex-col items-center justify-center border-4 border-gray-100 overflow-hidden">
+        <div className={`absolute top-[40%] left-[40%] w-[20%] h-[20%] z-50 bg-white shadow-2xl rounded-3xl flex flex-col items-center justify-center border-4 overflow-hidden ${theme === 'cyber' ? 'border-cyber-blue shadow-cyber-blue/20' : 'border-gray-100'}`}>
           <div className="relative w-full h-full flex flex-col items-center justify-center">
             {isShakingCup ? (
               <div className="flex flex-col items-center animate-dice-shake scale-125">
@@ -467,7 +497,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
             {turn === myColor && !hasRolled && !isRolling && !isShakingCup && !movingPieceId && (
               <button onClick={rollDice} className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 group transition-all">
                 <span className="text-4xl mb-1 group-hover:scale-110">🥤</span>
-                <span className="bg-naija-green text-white px-3 py-1 rounded-full font-black text-[8px] uppercase tracking-tighter">
+                <span className={`${theme === 'cyber' ? 'bg-cyber-blue' : 'bg-naija-green'} text-white px-3 py-1 rounded-full font-black text-[8px] uppercase tracking-tighter`}>
                   ROLL DICE
                 </span>
               </button>
@@ -489,7 +519,8 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
                 transition-all duration-300 ease-out cursor-pointer overflow-hidden
                 ${canAct ? 'animate-bounce ring-4 ring-white/50 ring-offset-2' : 'hover:scale-110'}
                 ${isMoving ? '-translate-y-4 scale-125 z-[70]' : ''}
-                ${isCaptured ? 'scale-150 rotate-[360deg] opacity-0 blur-sm duration-700' : ''}`}
+                ${isCaptured ? 'scale-150 rotate-[360deg] opacity-0 blur-sm duration-700' : ''}
+                ${theme === 'cyber' ? 'piece-cyber-glow' : ''}`}
               style={{
                 left: `${visual.x * 6.66}%`,
                 top: `${visual.y * 6.66}%`,
@@ -511,7 +542,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
             { id: 'die2', val: dice[1], label: 'USE 2' },
             { id: 'both', val: dice[0] + dice[1], label: 'TOTAL' }
           ].map(btn => (
-            <button key={btn.id} onClick={() => { setActiveDie(btn.id as any); speak(`Selected ${btn.val}`); }} className={`relative py-5 rounded-[30px] font-black shadow-xl border-4 ${activeDie === btn.id ? 'bg-naija-green text-white border-white scale-110' : 'bg-white text-gray-400 border-gray-100 hover:bg-gray-50'}`}>
+            <button key={btn.id} onClick={() => { setActiveDie(btn.id as any); speak(`Selected ${btn.val}`); }} className={`relative py-5 rounded-[30px] font-black shadow-xl border-4 transition-all ${activeDie === btn.id ? (theme === 'cyber' ? 'bg-cyber-blue text-white border-white scale-110' : 'bg-naija-green text-white border-white scale-110') : 'bg-white text-gray-400 border-gray-100 hover:bg-gray-50'}`}>
               <span className="block text-2xl tracking-tighter leading-none">{btn.val}</span>
               <span className="block text-[8px] opacity-60 mt-1 uppercase font-bold tracking-widest">{btn.label}</span>
             </button>
@@ -519,24 +550,24 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         </div>
       )}
 
-      <div className="mt-8 flex items-center justify-between w-full px-8 bg-black/5 py-4 rounded-[40px] border border-black/5">
+      <div className={`mt-8 flex items-center justify-between w-full px-8 py-4 rounded-[40px] border transition-colors ${isDark ? 'bg-black/20 border-white/5' : 'bg-black/5 border-black/5'}`}>
         <div className={`flex items-center gap-3 transition-all ${turn === 'green' ? 'scale-110 opacity-100' : 'opacity-30 grayscale'}`}>
-           <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg">
+           <div className={`w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg ${theme === 'cyber' ? 'ring-2 ring-cyber-green' : ''}`}>
               <img src={THEMES.green[0]} className="w-full h-full object-cover" />
            </div>
            <div className="text-left">
              <p className="font-black text-xs">{myColor === 'green' ? 'CHIDI (YOU)' : 'PLAYER 1'}</p>
-             <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1">
-                {turn === 'green' && <div className="h-full bg-emerald-500 w-full animate-pulse"></div>}
+             <div className="w-12 h-1.5 bg-gray-200/30 rounded-full overflow-hidden mt-1">
+                {turn === 'green' && <div className={`h-full w-full animate-pulse ${theme === 'cyber' ? 'bg-cyber-green' : 'bg-emerald-500'}`}></div>}
              </div>
            </div>
         </div>
-        <div className="text-naija-green font-black text-xl italic tracking-tighter">VS</div>
+        <div className={`font-black text-xl italic tracking-tighter ${theme === 'cyber' ? 'text-cyber-blue' : 'text-naija-green'}`}>VS</div>
         <div className={`flex items-center gap-3 transition-all ${turn === 'blue' ? 'scale-110 opacity-100' : 'opacity-30 grayscale'}`}>
            <div className="text-right">
-             <p className="font-black text-xs">{myColor === 'blue' ? 'MASTER BOT' : multiplayerMode === 'ai' ? 'AI SQUAD' : 'PLAYER 2'}</p>
-             <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1 flex justify-end">
-                {turn === 'blue' && <div className="h-full bg-sky-500 w-full animate-pulse"></div>}
+             <p className="font-black text-xs">{myColor === 'blue' ? 'MASTER BOT' : multiplayerMode === 'ai' ? 'AI CHAMP' : 'PLAYER 2'}</p>
+             <div className="w-12 h-1.5 bg-gray-200/30 rounded-full overflow-hidden mt-1 flex justify-end">
+                {turn === 'blue' && <div className={`h-full w-full animate-pulse ${theme === 'cyber' ? 'bg-sky-500' : 'bg-sky-500'}`}></div>}
              </div>
            </div>
            <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg">

@@ -23,6 +23,8 @@
             },
             colors: {
               'naija-green': '#008751',
+              'cyber-blue': '#00f2ff',
+              'cyber-green': '#39ff14',
             }
           }
         }
@@ -60,20 +62,52 @@
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
-        .board-brown-anim {
+
+        .board-theme-wood {
           background: linear-gradient(-45deg, #4b2c20, #6d4c41, #3e2723, #5d4037);
           background-size: 400% 400%;
           animation: bg-flow 15s ease infinite;
-          position: relative;
         }
-
-        .board-brown-anim::before {
+        .board-theme-wood::before {
           content: '';
           position: absolute;
           inset: 0;
           background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
           opacity: 0.2;
           pointer-events: none;
+        }
+
+        .board-theme-marble {
+          background: linear-gradient(-45deg, #121212, #2c2c2c, #0a0a0a, #1a1a1a);
+          background-size: 400% 400%;
+          animation: bg-flow 20s ease infinite;
+        }
+        .board-theme-marble::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: url('https://www.transparenttextures.com/patterns/pinstriped-suit.png');
+          opacity: 0.1;
+          pointer-events: none;
+        }
+
+        .board-theme-cyber {
+          background: linear-gradient(-45deg, #000428, #004e92, #050110, #000000);
+          background-size: 400% 400%;
+          animation: bg-flow 8s ease infinite;
+        }
+        .board-theme-cyber::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: url('https://www.transparenttextures.com/patterns/diagmonds-light.png');
+          opacity: 0.05;
+          pointer-events: none;
+        }
+
+        .piece-cyber-glow {
+          box-shadow: 0 0 15px rgba(0, 242, 255, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.5);
+          border: 2px solid rgba(255, 255, 255, 0.8) !important;
         }
 
         .toon-shadow {
