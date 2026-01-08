@@ -8,9 +8,11 @@ interface LayoutProps {
   onLogout: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isDark: boolean;
+  toggleTheme: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, setActiveTab }) => {
+const Layout: React.FC<LayoutProps> = ({ children, user, activeTab, setActiveTab, isDark, toggleTheme }) => {
   if (!user) return <>{children}</>;
 
   const tabs = [
@@ -21,8 +23,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, se
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white border-b sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
+    <div className={`flex flex-col min-h-screen pb-20 transition-colors duration-300 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      <header className={`border-b sticky top-0 z-50 px-4 py-3 flex items-center justify-between transition-colors duration-300 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-6 flex">
             <div className="bg-naija-green w-1/3 h-full"></div>
@@ -31,10 +33,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, se
           </div>
           <span className="font-brand font-black text-xl tracking-tighter text-naija-green">MONEY11</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="bg-green-50 px-3 py-1 rounded-full border border-green-200">
-            <span className="text-naija-green font-bold">₦{user.balance.toLocaleString()}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={toggleTheme}
+            className={`p-2 rounded-full transition-all ${isDark ? 'bg-gray-700 text-yellow-400' : 'bg-gray-100 text-gray-600'}`}
+            title="Toggle Theme"
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
         </div>
       </header>
 
@@ -42,13 +48,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activeTab, se
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center py-2 px-4 shadow-lg z-50">
+      <nav className={`fixed bottom-0 left-0 right-0 border-t flex justify-around items-center py-2 px-4 shadow-lg z-50 transition-colors duration-300 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex flex-col items-center gap-1 transition-colors ${
-              activeTab === tab.id ? 'text-naija-green' : 'text-gray-400'
+              activeTab === tab.id ? 'text-naija-green' : isDark ? 'text-gray-500' : 'text-gray-400'
             }`}
           >
             <span className="text-2xl">{tab.icon}</span>

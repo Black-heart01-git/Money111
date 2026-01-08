@@ -9,12 +9,15 @@ export enum GameType {
   SPIN = 'Spin to Win'
 }
 
+export type AccountTier = 'Starter' | 'Premium' | 'Pro';
+
 export interface User {
   id: string;
+  fullName: string;
   phoneNumber: string;
-  email?: string;
+  email: string;
   balance: number;
-  tier: 1 | 2;
+  tier: AccountTier;
   referralCode: string;
   isGuest: boolean;
 }

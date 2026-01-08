@@ -2,23 +2,19 @@
 import React, { useState } from 'react';
 
 interface LoginProps {
-  onLogin: (phone: string, isGuest?: boolean) => void;
+  onLogin: (data: any, isGuest?: boolean) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpSent) {
-      setOtpSent(true);
-      return;
-    }
-    onLogin(phoneNumber);
+    onLogin({ email, fullName, phoneNumber, password });
   };
 
   return (
@@ -35,95 +31,88 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {!otpSent ? (
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {isRegistering && (
               <>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">Phone Number (080...)</label>
-                  <div className="mt-1 flex">
-                    <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                      +234
-                    </span>
-                    <input
-                      type="tel"
-                      required
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="flex-1 block w-full border border-gray-300 rounded-none rounded-r-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green transition-all"
-                      placeholder="8012345678"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700">Password</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Full Name</label>
                   <input
-                    type="password"
+                    type="text"
                     required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green transition-all"
-                    placeholder="••••••••"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                    placeholder="Chidi Obi"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                    placeholder="080 1234 5678"
                   />
                 </div>
               </>
-            ) : (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 text-center">Enter 4-digit OTP sent to {phoneNumber}</label>
-                <input
-                  type="text"
-                  maxLength={4}
-                  required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="mt-4 block w-full border border-gray-300 rounded-lg px-4 py-4 text-center text-3xl tracking-widest font-bold focus:ring-naija-green focus:border-naija-green transition-all"
-                  placeholder="0000"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setOtpSent(false)}
-                  className="mt-4 text-xs text-naija-green font-bold text-center w-full uppercase"
-                >
-                  Change Phone Number
-                </button>
-              </div>
             )}
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Email Address</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                placeholder="chidi@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Password</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                placeholder="••••••••"
+              />
+            </div>
 
             <button
               type="submit"
-              className="w-full bg-naija-green text-white py-4 rounded-xl font-bold text-lg hover:bg-opacity-90 transition-all shadow-lg shadow-green-200"
+              className="w-full bg-naija-green text-white py-4 rounded-xl font-bold text-lg hover:bg-opacity-90 transition-all shadow-lg shadow-green-200 mt-4"
             >
-              {otpSent ? 'Verify & Continue' : (isRegistering ? 'Register' : 'Login')}
+              {isRegistering ? 'Create Account' : 'Sign In'}
             </button>
           </form>
 
-          <div className="mt-6">
+          <div className="mt-6 text-center">
             <button
               onClick={() => setIsRegistering(!isRegistering)}
-              className="w-full text-sm font-semibold text-gray-500 hover:text-naija-green transition-colors"
+              className="text-sm font-semibold text-gray-500 hover:text-naija-green transition-colors"
             >
-              {isRegistering ? 'Already have an account? Login' : "Don't have an account? Register"}
+              {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register Now"}
             </button>
           </div>
         </div>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-          <div className="relative flex justify-center text-sm"><span className="px-2 bg-gray-50 text-gray-500">OR</span></div>
+          <div className="relative flex justify-center text-sm"><span className="px-2 bg-gray-50 text-gray-500 uppercase font-bold tracking-widest text-[10px]">Quick Access</span></div>
         </div>
 
         <button
-          onClick={() => onLogin('Guest', true)}
+          onClick={() => onLogin({}, true)}
           className="w-full border-2 border-dashed border-gray-300 text-gray-600 py-4 rounded-xl font-bold hover:border-naija-green hover:text-naija-green transition-all"
         >
-          Continue as Guest (Free Only)
+          Continue as Guest
         </button>
-
-        <p className="text-center text-xs text-gray-400 mt-8">
-          By continuing, you agree to MONEY11's Terms of Service and confirm you are 18+.
-          <br/>Gambling can be addictive. Please play responsibly.
-        </p>
       </div>
     </div>
   );

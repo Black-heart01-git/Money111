@@ -1,5 +1,5 @@
 
-import { GameType } from './types';
+import { GameType, AccountTier } from './types';
 
 export const COLORS = {
   green: '#008751',
@@ -67,8 +67,12 @@ export const GAMES = [
   }
 ];
 
+export const TIER_CONFIG: Record<AccountTier, { price: number; dailyLimit: number }> = {
+  'Starter': { price: 7500, dailyLimit: 15000 },
+  'Premium': { price: 13000, dailyLimit: 50000 },
+  'Pro': { price: 17000, dailyLimit: 150000 }
+};
+
 export const WITHDRAWAL_LIMITS = {
-  tier1: { daily: 5000, deposit: 10000 },
-  tier2: { daily: 20000, deposit: 50000 },
   minWithdrawal: 500
 };
