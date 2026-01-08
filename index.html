@@ -19,6 +19,10 @@
             backgroundImage: {
               'cardboard': "url('https://www.transparenttextures.com/patterns/cardboard-flat.png')",
               'paper': "url('https://www.transparenttextures.com/patterns/cream-paper.png')",
+              'wood': "url('https://www.transparenttextures.com/patterns/wood-pattern.png')",
+            },
+            colors: {
+              'naija-green': '#008751',
             }
           }
         }
@@ -51,6 +55,27 @@
         }
         .animate-dice-shake { animation: dice-shake 0.2s infinite; }
 
+        @keyframes bg-flow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .board-brown-anim {
+          background: linear-gradient(-45deg, #4b2c20, #6d4c41, #3e2723, #5d4037);
+          background-size: 400% 400%;
+          animation: bg-flow 15s ease infinite;
+          position: relative;
+        }
+
+        .board-brown-anim::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
+          opacity: 0.2;
+          pointer-events: none;
+        }
+
         .toon-shadow {
           box-shadow: 0 10px 0 rgba(0,0,0,0.15);
         }
@@ -59,14 +84,8 @@
           transform: translateY(6px);
         }
 
-        .board-texture {
-          background-color: #f3f4f6;
-          background-image: url('https://www.transparenttextures.com/patterns/cardboard-flat.png');
-          box-shadow: inset 0 0 40px rgba(0,0,0,0.05);
-        }
-
         .piece-shadow {
-          filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3));
+          filter: drop-shadow(0 6px 4px rgba(0,0,0,0.5));
         }
 
         /* 3D-ish Dice Faces */

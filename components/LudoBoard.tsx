@@ -91,7 +91,6 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
   };
 
   const channel = useRef<BroadcastChannel | null>(null);
-
   const [pieces, setPieces] = useState<Piece[]>(() => {
     const p: Piece[] = [];
     (['blue', 'red', 'green', 'yellow'] as const).forEach(color => {
@@ -111,22 +110,32 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
   const [message, setMessage] = useState("Tap to shake and roll!");
   const [movingPieceId, setMovingPieceId] = useState<string | null>(null);
   const [capturedPieceId, setCapturedPieceId] = useState<string | null>(null);
-  const [bonusTurns, setBonusTurns] = useState(0);
 
   const audioContext = useRef<AudioContext | null>(null);
 
   const playSound = (freq: number, type: OscillatorType = 'sine', duration = 0.1) => {
-    if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = audioContext.current.createOscillator();
-    const gain = audioContext.current.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
-    gain.gain.setValueAtTime(0.1, audioContext.current.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(audioContext.current.destination);
-    osc.start();
-    osc.stop(audioContext.current.currentTime + duration);
+    try {
+      if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioContext.current.createOscillator();
+      const gain = audioContext.current.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
+      gain.gain.setValueAtTime(0.1, audioContext.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioContext.current.destination);
+      osc.start();
+      osc.stop(audioContext.current.currentTime + duration);
+    } catch(e) {}
+  };
+
+  const speak = (text: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.1;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const broadcastEvent = (type: string, data: any) => {
@@ -140,13 +149,13 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setTurn(nextTurn);
     setHasRolled(false);
     setActiveDie(null);
-    setBonusTurns(0);
 
     if (multiplayerMode === 'ai' && nextTurn === 'blue') {
       simulateAi();
     } else {
       const turnMsg = nextTurn === myColor ? "Your turn! Shake it up!" : `Waiting for ${nextTurn}...`;
       setMessage(turnMsg);
+      if (nextTurn === myColor) speak("It is your turn.");
     }
   }, [turn, multiplayerMode, myColor]);
 
@@ -156,7 +165,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       channel.current = new BroadcastChannel('money11_ludo');
       channel.current.onmessage = (event) => {
         const { type, data, sender } = event.data;
-        if (sender === myColor) return; // Ignore own messages if reflected
+        if (sender === myColor) return; 
 
         switch (type) {
           case 'DICE_ROLL':
@@ -172,6 +181,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
             setHasRolled(false);
             setActiveDie(null);
             setMessage(data.nextTurn === myColor ? "Your turn!" : `Waiting for ${data.nextTurn}...`);
+            if (data.nextTurn === myColor) speak("Your turn.");
             break;
         }
       };
@@ -183,8 +193,9 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     if (turn !== myColor || isRolling || isShakingCup || hasRolled || movingPieceId) return;
     
     setIsShakingCup(true);
-    setMessage("Shaking the cup...");
+    setMessage("Shaking...");
     playSound(200, 'square', 0.4);
+    speak("Shaking the cup.");
 
     setTimeout(() => {
       setIsShakingCup(false);
@@ -205,6 +216,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         setIsRolling(false);
         setHasRolled(true);
         playSound(440, 'sine', 0.2);
+        speak(`You rolled ${r1} and ${r2}.`);
 
         broadcastEvent('DICE_ROLL', { dice: finalDice });
 
@@ -214,14 +226,15 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         const canMoveBoth = myPieces.some(p => canMove(p, r1 + r2));
 
         if (!canMove1 && !canMove2 && !canMoveBoth) {
-          setMessage(`No valid moves! Pass turn.`);
+          setMessage(`No valid moves!`);
+          speak("No valid moves. Skipping turn.");
           setTimeout(() => {
             const nextTurn = turn === 'green' ? 'blue' : 'green';
             broadcastEvent('TURN_CHANGE', { nextTurn });
             rotateTurn();
           }, 1500);
         } else {
-          setMessage("Select your move!");
+          setMessage("Choose your move!");
         }
       }, 1000);
     }, 1000);
@@ -251,7 +264,9 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setMovingPieceId(pieceId);
     if (!remote) broadcastEvent('PIECE_MOVE', { pieceId, steps });
 
+    let capturedInThisMove = false;
     let currentSteps = steps;
+    
     for (let i = 0; i < currentSteps; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
       setPieces(prev => prev.map(p => {
@@ -263,7 +278,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
           if (journey === 50) nextPos = 52; 
           else nextPos = (p.pos + 1) % 52;
         } else nextPos += 1;
-        playSound(600 + (i * 50), 'sine', 0.05);
+        playSound(600 + (i * 10), 'sine', 0.05);
         return { ...p, pos: nextPos };
       }));
     }
@@ -272,6 +287,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       const movedPiece = prev.find(p => p.id === pieceId)!;
       if (movedPiece.pos === 58) {
         playSound(880, 'sine', 0.3);
+        speak("Goal! Piece reached home!");
         if (movedPiece.color === myColor) {
            const finished = prev.filter(p => p.color === myColor && p.pos === 58).length + 1;
            if (finished === 4) onWin();
@@ -289,8 +305,10 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         });
         
         if (victimId) {
+          capturedInThisMove = true;
           setCapturedPieceId(victimId);
           playSound(150, 'sawtooth', 0.4);
+          speak("Critical Hit! Captured!");
           setTimeout(() => setCapturedPieceId(null), 1000);
         }
         return nextPieces;
@@ -299,15 +317,20 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     });
 
     setMovingPieceId(null);
+    
     if (!remote) {
-      if (dice[0] !== 6 && dice[1] !== 6) {
+      // Bonus turn only on Double 6 or Capture
+      const isDoubleSix = (dice[0] === 6 && dice[1] === 6);
+      
+      if (isDoubleSix || capturedInThisMove) {
+         setHasRolled(false);
+         setActiveDie(null);
+         setMessage(isDoubleSix ? "Double Six! Roll again!" : "Captured! Bonus Turn!");
+         speak(isDoubleSix ? "Double six! You get another roll." : "You captured a piece! Take another turn.");
+      } else {
         const nextTurn = turn === 'green' ? 'blue' : 'green';
         broadcastEvent('TURN_CHANGE', { nextTurn });
         setTimeout(rotateTurn, 800);
-      } else {
-         setHasRolled(false);
-         setActiveDie(null);
-         setMessage("Roll Again!");
       }
     }
   };
@@ -325,11 +348,12 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       await animateMove(piece.id, steps);
     } else {
       playSound(100, 'square', 0.2);
+      speak("Invalid move.");
     }
   };
 
   const simulateAi = async () => {
-    setMessage("AI is planning...");
+    setMessage("AI thinking...");
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsRolling(true);
     const tumbleInterval = setInterval(() => {
@@ -376,20 +400,18 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
   };
 
   return (
-    <div className={`flex flex-col items-center justify-center min-h-[95vh] w-full max-w-2xl mx-auto p-4 select-none transition-transform duration-100 ${isShakingCup ? 'scale-[1.01] rotate-1' : ''}`}>
+    <div className={`flex flex-col items-center justify-center min-h-[95vh] w-full max-w-2xl mx-auto p-4 select-none transition-transform duration-100 ${isShakingCup ? 'scale-[1.01]' : ''}`}>
       <div className={`mb-4 px-6 py-4 rounded-3xl w-full text-center font-black text-lg shadow-xl transition-all border-b-8 border-naija-green/30 ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
         <div className="flex justify-between items-center mb-1">
-          <span className="text-[10px] text-naija-green uppercase tracking-tighter">
-            {multiplayerMode === 'online' ? `Online Multi: ${myColor === 'green' ? 'HOST' : 'GUEST'}` : 'Arena HUD'}
+          <span className="text-[10px] text-naija-green uppercase tracking-tighter font-black">
+            {multiplayerMode === 'online' ? `Lobby: ${myColor === 'green' ? 'MASTER' : 'GUEST'}` : 'MONEY11 ARENA'}
           </span>
-          <span className="text-[10px] text-blue-400 uppercase tracking-tighter">Tournament Mode</span>
+          <span className="text-[10px] text-blue-400 uppercase tracking-tighter">Live Match</span>
         </div>
         {message}
       </div>
 
-      <div className={`relative w-full aspect-square border-[16px] rounded-[60px] shadow-2xl p-1 overflow-hidden transition-colors board-texture border-gray-200 ${isShakingCup ? 'animate-dice-shake' : ''}`}>
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-paper rotate-12 scale-150"></div>
-
+      <div className={`relative w-full aspect-square border-[16px] rounded-[60px] shadow-2xl p-1 overflow-hidden transition-colors board-brown-anim border-[#3e2723] ${isShakingCup ? 'animate-dice-shake' : ''}`}>
         {Object.entries(COLORS).map(([color, cfg]) => (
           <div key={color} className={`absolute w-[40%] h-[40%] ${cfg.bg} flex flex-col items-center justify-center rounded-[40px] border-8 border-white/30 shadow-inner overflow-hidden`}
             style={{ 
@@ -408,7 +430,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         ))}
 
         {TRACK_COORDS.map((c, i) => (
-          <div key={i} className={`absolute w-[6.66%] h-[6.66%] border border-black/5 flex items-center justify-center ${SAFE_SQUARES.includes(i) ? 'bg-yellow-200/40' : 'bg-white/40'}`}
+          <div key={i} className={`absolute w-[6.66%] h-[6.66%] border border-black/10 flex items-center justify-center ${SAFE_SQUARES.includes(i) ? 'bg-yellow-200/30' : 'bg-white/20'}`}
             style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}>
             {SAFE_SQUARES.includes(i) && <span className="text-[8px] opacity-30">⭐</span>}
           </div>
@@ -416,7 +438,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
 
         {Object.entries(HOME_STRETCH).map(([color, cells]) => (
           cells.map((c, i) => (
-            <div key={`${color}-${i}`} className={`absolute w-[6.66%] h-[6.66%] border border-black/5 ${COLORS[color as keyof typeof COLORS].bg} opacity-50`}
+            <div key={`${color}-${i}`} className={`absolute w-[6.66%] h-[6.66%] border border-black/10 ${COLORS[color as keyof typeof COLORS].bg} opacity-50`}
               style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}
             />
           ))
@@ -440,10 +462,10 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
             )}
             
             {turn === myColor && !hasRolled && !isRolling && !isShakingCup && !movingPieceId && (
-              <button onClick={rollDice} className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 group transition-all">
+              <button onClick={rollDice} className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 group transition-all">
                 <span className="text-4xl mb-1 group-hover:scale-110">🥤</span>
                 <span className="bg-naija-green text-white px-3 py-1 rounded-full font-black text-[8px] uppercase tracking-tighter">
-                  ROLL
+                  ROLL DICE
                 </span>
               </button>
             )}
@@ -460,7 +482,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
           
           return (
             <div key={p.id} onClick={() => handlePieceClick(p)}
-              className={`absolute w-[7.5%] h-[7.5%] rounded-full shadow-2xl border-[2px] border-white/90 z-[60] flex items-center justify-center piece-shadow 
+              className={`absolute w-[7.5%] h-[7.5%] rounded-full shadow-2xl border-[3px] border-white/90 z-[60] flex items-center justify-center piece-shadow 
                 transition-all duration-300 ease-out cursor-pointer overflow-hidden
                 ${canAct ? 'animate-bounce ring-4 ring-white/50 ring-offset-2' : 'hover:scale-110'}
                 ${isMoving ? '-translate-y-4 scale-125 z-[70]' : ''}
@@ -482,32 +504,39 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       {turn === myColor && hasRolled && !movingPieceId && (
         <div className="grid grid-cols-3 gap-4 w-full mt-8 animate-pop">
           {[
-            { id: 'die1', val: dice[0], label: 'MOVE 1' },
-            { id: 'die2', val: dice[1], label: 'MOVE 2' },
-            { id: 'both', val: dice[0] + dice[1], label: 'COMBO' }
+            { id: 'die1', val: dice[0], label: 'USE 1' },
+            { id: 'die2', val: dice[1], label: 'USE 2' },
+            { id: 'both', val: dice[0] + dice[1], label: 'TOTAL' }
           ].map(btn => (
-            <button key={btn.id} onClick={() => setActiveDie(btn.id as any)} className={`relative py-5 rounded-[30px] font-black shadow-xl border-4 ${activeDie === btn.id ? 'bg-naija-green text-white border-white scale-110' : 'bg-white text-gray-400 border-gray-100 hover:bg-gray-50'}`}>
+            <button key={btn.id} onClick={() => { setActiveDie(btn.id as any); speak(`Selected ${btn.val}`); }} className={`relative py-5 rounded-[30px] font-black shadow-xl border-4 ${activeDie === btn.id ? 'bg-naija-green text-white border-white scale-110' : 'bg-white text-gray-400 border-gray-100 hover:bg-gray-50'}`}>
               <span className="block text-2xl tracking-tighter leading-none">{btn.val}</span>
-              <span className="block text-[8px] opacity-60 mt-1 uppercase font-bold">{btn.label}</span>
+              <span className="block text-[8px] opacity-60 mt-1 uppercase font-bold tracking-widest">{btn.label}</span>
             </button>
           ))}
         </div>
       )}
 
       <div className="mt-8 flex items-center justify-between w-full px-8 bg-black/5 py-4 rounded-[40px] border border-black/5">
-        <div className={`flex items-center gap-3 transition-all ${turn === 'green' ? 'scale-110' : 'opacity-20 grayscale'}`}>
-           <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center overflow-hidden border-2 border-white">
+        <div className={`flex items-center gap-3 transition-all ${turn === 'green' ? 'scale-110 opacity-100' : 'opacity-30 grayscale'}`}>
+           <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg">
               <img src={THEMES.green[0]} className="w-full h-full object-cover" />
            </div>
            <div className="text-left">
-             <p className="font-black text-xs">{myColor === 'green' ? 'YOU (Host)' : 'Player 1'}</p>
+             <p className="font-black text-xs">{myColor === 'green' ? 'CHIDI (YOU)' : 'PLAYER 1'}</p>
+             <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1">
+                {turn === 'green' && <div className="h-full bg-emerald-500 w-full animate-pulse"></div>}
+             </div>
            </div>
         </div>
-        <div className={`flex items-center gap-3 transition-all ${turn === 'blue' ? 'scale-110' : 'opacity-20 grayscale'}`}>
+        <div className="text-naija-green font-black text-xl italic tracking-tighter">VS</div>
+        <div className={`flex items-center gap-3 transition-all ${turn === 'blue' ? 'scale-110 opacity-100' : 'opacity-30 grayscale'}`}>
            <div className="text-right">
-             <p className="font-black text-xs">{myColor === 'blue' ? 'YOU (Guest)' : multiplayerMode === 'ai' ? 'AI Bot' : 'Player 2'}</p>
+             <p className="font-black text-xs">{myColor === 'blue' ? 'MASTER BOT' : multiplayerMode === 'ai' ? 'AI SQUAD' : 'PLAYER 2'}</p>
+             <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1 flex justify-end">
+                {turn === 'blue' && <div className="h-full bg-sky-500 w-full animate-pulse"></div>}
+             </div>
            </div>
-           <div className="w-10 h-10 rounded-2xl bg-sky-500 flex items-center justify-center overflow-hidden border-2 border-white">
+           <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg">
               <img src={THEMES.blue[0]} className="w-full h-full object-cover" />
            </div>
         </div>
