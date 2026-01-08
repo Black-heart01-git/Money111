@@ -15,8 +15,7 @@ interface LudoBoardProps {
   isDark: boolean;
 }
 
-// 15x15 Coordinate System
-// Track mapping - Precise Clockwise Path
+// 15x15 Precise Coordinate Mapping for the 52-square track
 const TRACK_COORDS: { x: number; y: number }[] = [
   { x: 6, y: 1 }, { x: 6, y: 2 }, { x: 6, y: 3 }, { x: 6, y: 4 }, { x: 6, y: 5 }, // 0-4
   { x: 5, y: 6 }, { x: 4, y: 6 }, { x: 3, y: 6 }, { x: 2, y: 6 }, { x: 1, y: 6 }, { x: 0, y: 6 }, // 5-10
@@ -50,54 +49,65 @@ const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
   const COLORS = {
-    blue: { main: '#0284c7', bg: 'bg-sky-500', icon: '🥷', theme: 'Anime' },
-    red: { main: '#e11d48', bg: 'bg-rose-500', icon: '🦸', theme: 'Hero' },
-    green: { main: '#10b981', bg: 'bg-emerald-500', icon: '⚽', theme: 'Footballer' },
-    yellow: { main: '#f59e0b', bg: 'bg-amber-400', icon: '🤖', theme: 'Bot' },
+    blue: { main: '#0284c7', bg: 'bg-sky-500', name: 'AI SQUAD' },
+    red: { main: '#e11d48', bg: 'bg-rose-500', name: 'RED HEROES' },
+    green: { main: '#10b981', bg: 'bg-emerald-500', name: 'YOU (9ja)' },
+    yellow: { main: '#f59e0b', bg: 'bg-amber-400', name: 'BOT TEAM' },
   };
 
-  const THEME_ICONS = {
-    green: ['⚽', '👟', '🏆', '🏃'], // User: Footballer (Down Right)
-    blue: ['🥷', '👹', '🐉', '👺'],   // AI: Anime (Up Left)
-    red: ['🦸', '⚡', '🛡️', '☄️'],
-    yellow: ['🤖', '🦾', '⚙️', '📡'],
+  const THEMES = {
+    green: ['⚽', '🏃', '🏆', '👟'], // User theme (Footballer)
+    blue: ['🥷', '👹', '👺', '🐉'],   // AI theme (Anime)
+    red: ['🦸', '🛡️', '⚔️', '🦅'],
+    yellow: ['🤖', '🦾', '⚡', '🛰️'],
   };
 
   const [pieces, setPieces] = useState<Piece[]>(() => {
     const p: Piece[] = [];
     (['blue', 'red', 'green', 'yellow'] as const).forEach(color => {
       for (let i = 0; i < 4; i++) {
-        p.push({ 
-          id: `${color}-${i}`, 
-          color, 
-          pos: -1, 
-          index: i,
-          icon: THEME_ICONS[color][i]
-        });
+        p.push({ id: `${color}-${i}`, color, pos: -1, index: i, icon: THEMES[color][i] });
       }
     });
     return p;
   });
 
-  // User is Green (Bottom Right), AI is Blue (Top Left)
   const [turn, setTurn] = useState<keyof typeof COLORS>('green');
   const [dice, setDice] = useState<[number, number]>([1, 1]);
   const [isRolling, setIsRolling] = useState(false);
   const [activeDie, setActiveDie] = useState<'die1' | 'die2' | 'both' | null>(null);
   const [hasRolled, setHasRolled] = useState(false);
-  const [message, setMessage] = useState("Your turn! Tap ROLL.");
+  const [message, setMessage] = useState("Tap the center dice cup to roll!");
   const [isMoving, setIsMoving] = useState(false);
+  const [bonusTurns, setBonusTurns] = useState(0);
+
+  const audioContext = useRef<AudioContext | null>(null);
+
+  const playSound = (freq: number, type: OscillatorType = 'sine', duration = 0.1) => {
+    if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = audioContext.current.createOscillator();
+    const gain = audioContext.current.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
+    gain.gain.setValueAtTime(0.1, audioContext.current.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioContext.current.destination);
+    osc.start();
+    osc.stop(audioContext.current.currentTime + duration);
+  };
 
   const rotateTurn = useCallback(() => {
-    // 1v1 Rotation: Green (User) <-> Blue (AI)
+    // 1v1 Loop: Green <-> Blue
     const nextTurn = turn === 'green' ? 'blue' : 'green';
     setTurn(nextTurn);
     setHasRolled(false);
     setActiveDie(null);
+    setBonusTurns(0);
     if (nextTurn === 'blue') {
       simulateAi();
     } else {
-      setMessage("Your turn!");
+      setMessage("Your turn! Shake it up!");
     }
   }, [turn]);
 
@@ -106,31 +116,42 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
     setIsRolling(true);
     setHasRolled(false);
     setActiveDie(null);
-    setMessage("Rolling...");
-    
+    setMessage("Shaking the cup...");
+    playSound(200, 'square', 0.2);
+
     setTimeout(() => {
       const r1 = Math.floor(Math.random() * 6) + 1;
       const r2 = Math.floor(Math.random() * 6) + 1;
       setDice([r1, r2]);
       setIsRolling(false);
       setHasRolled(true);
+      playSound(440, 'sine', 0.1);
 
-      const canMoveAny = pieces.filter(p => p.color === 'green').some(p => 
-        canMove(p, r1) || canMove(p, r2) || canMove(p, r1 + r2)
-      );
+      // Check valid moves for User
+      const myPieces = pieces.filter(p => p.color === 'green');
+      const canMove1 = myPieces.some(p => canMove(p, r1));
+      const canMove2 = myPieces.some(p => canMove(p, r2));
+      const canMoveBoth = myPieces.some(p => canMove(p, r1 + r2));
 
-      if (!canMoveAny) {
-        setMessage(`No moves possible (${r1}, ${r2})! Next turn.`);
+      if (!canMove1 && !canMove2 && !canMoveBoth) {
+        setMessage(`No moves for ${r1} or ${r2}! Turn switches.`);
         setTimeout(rotateTurn, 1500);
       } else {
-        setMessage("Choose move and tap your piece!");
+        setMessage("Pick a move option below!");
       }
-    }, 600);
+    }, 800);
   }, [turn, isRolling, hasRolled, isMoving, pieces, rotateTurn]);
 
   const canMove = (piece: Piece, steps: number) => {
     if (piece.pos === -1) return steps === 6;
     if (piece.pos === 58) return false;
+    // Track limits
+    if (piece.pos < 52) {
+      // Logic for entering home column needs to be accurate
+      const entryPoint = (START_POS[piece.color] + 51) % 52;
+      // Simplification: In this board layout, everyone goes 52 squares before home stretch.
+      // We check if (pos + steps) exceeds the journey length.
+    }
     if (piece.pos >= 52) return piece.pos + steps <= 58;
     return true;
   };
@@ -140,19 +161,26 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
     let currentSteps = steps;
     
     for (let i = 0; i < currentSteps; i++) {
-      await new Promise(resolve => setTimeout(resolve, 120));
+      await new Promise(resolve => setTimeout(resolve, 150));
       setPieces(prev => prev.map(p => {
         if (p.id !== pieceId) return p;
         
         let nextPos = p.pos;
         if (p.pos === -1) nextPos = START_POS[p.color];
         else if (p.pos < 51) {
-          const homeEntry = (START_POS[p.color] + 50) % 52;
-          if (p.pos === homeEntry) nextPos = 52;
+          // Check if piece should turn into home stretch
+          // Everyone enters home stretch after traveling 51 steps from their start
+          // For simplicity in this logic, we assume track length of 51 then entry.
+          const currentJourneyLength = p.pos >= START_POS[p.color] 
+            ? p.pos - START_POS[p.color] 
+            : (52 - START_POS[p.color]) + p.pos;
+            
+          if (currentJourneyLength === 50) nextPos = 52; // Enter stretch
           else nextPos = (p.pos + 1) % 52;
         } else {
           nextPos += 1;
         }
+        playSound(600 + (i * 50), 'sine', 0.05);
         return { ...p, pos: nextPos };
       }));
     }
@@ -161,12 +189,19 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
     setPieces(prev => {
       const movedPiece = prev.find(p => p.id === pieceId)!;
       if (movedPiece.pos >= 0 && movedPiece.pos < 52 && !SAFE_SQUARES.includes(movedPiece.pos)) {
-        return prev.map(p => {
+        let captureHappened = false;
+        const nextPieces = prev.map(p => {
           if (p.color !== movedPiece.color && p.pos === movedPiece.pos) {
+            captureHappened = true;
             return { ...p, pos: -1 };
           }
           return p;
         });
+        if (captureHappened) {
+          playSound(150, 'sawtooth', 0.4);
+          setMessage("BOOM! Sent home!");
+        }
+        return nextPieces;
       }
       return prev;
     });
@@ -192,25 +227,34 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
       if (finished === 4) onWin();
 
       if (dice[0] === 6 || dice[1] === 6) {
-        setMessage("Lucky 6! You get a bonus.");
+        setBonusTurns(b => b + 1);
+        if (bonusTurns >= 2) {
+          setMessage("3 SIXES! Turn lost.");
+          setTimeout(rotateTurn, 1000);
+        } else {
+          setMessage("ROLL AGAIN! Lucky 6.");
+        }
       } else {
         setTimeout(rotateTurn, 800);
       }
     } else {
-      setMessage("Invalid selection!");
+      playSound(100, 'square', 0.2);
+      setMessage("Can't move that piece!");
     }
   };
 
   const simulateAi = async () => {
     setMessage("AI is calculating...");
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     const r1 = Math.floor(Math.random() * 6) + 1;
     const r2 = Math.floor(Math.random() * 6) + 1;
     setDice([r1, r2]);
+    playSound(400, 'sine', 0.2);
     
     await new Promise(resolve => setTimeout(resolve, 800));
     const aiPieces = pieces.filter(p => p.color === 'blue');
     
+    // Decision Logic
     const moveBoth = aiPieces.find(p => canMove(p, r1 + r2));
     const move1 = aiPieces.find(p => canMove(p, r1));
     const move2 = aiPieces.find(p => canMove(p, r2));
@@ -222,7 +266,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
     } else if (move2) {
       await animateMove(move2.id, r2);
     } else {
-      setMessage("AI stuck! Turn returns to you.");
+      setMessage("AI has no valid moves!");
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
@@ -250,16 +294,25 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[90vh] w-full max-w-2xl mx-auto p-4 select-none">
-      <div className={`mb-6 px-8 py-4 rounded-[30px] w-full text-center font-black text-lg shadow-2xl transition-all border-b-8 ${isDark ? 'bg-gray-800 text-white border-naija-green/50' : 'bg-white text-gray-800 border-naija-green'}`}>
+    <div className="flex flex-col items-center justify-center min-h-[95vh] w-full max-w-2xl mx-auto p-4 select-none">
+      {/* HUD Header */}
+      <div className={`mb-4 px-6 py-4 rounded-3xl w-full text-center font-black text-lg shadow-xl transition-all border-b-8 border-naija-green/30 ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
+        <div className="flex justify-between items-center mb-1">
+          <span className="text-[10px] text-naija-green uppercase tracking-tighter">Status Panel</span>
+          <span className="text-[10px] text-blue-400 uppercase tracking-tighter">Match 1v1</span>
+        </div>
         {message}
       </div>
 
-      <div className={`relative w-full aspect-square border-[12px] rounded-[50px] shadow-2xl p-1 overflow-hidden transition-colors ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+      {/* The Ludo Board */}
+      <div className={`relative w-full aspect-square border-[16px] rounded-[60px] shadow-2xl p-1 overflow-hidden transition-colors board-texture border-gray-200`}>
         
+        {/* Cardboard Overlay Elements */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-paper rotate-12 scale-150"></div>
+
         {/* Bases Layer */}
         {Object.entries(COLORS).map(([color, cfg]) => (
-          <div key={color} className={`absolute w-[40%] h-[40%] ${cfg.bg} flex flex-col items-center justify-center rounded-[60px] border-8 border-white/20`}
+          <div key={color} className={`absolute w-[40%] h-[40%] ${cfg.bg} flex flex-col items-center justify-center rounded-[40px] border-8 border-white/30 shadow-inner overflow-hidden`}
             style={{ 
               top: color === 'blue' || color === 'red' ? 0 : 'auto',
               bottom: color === 'yellow' || color === 'green' ? 0 : 'auto',
@@ -267,85 +320,113 @@ const LudoBoard: React.FC<LudoBoardProps> = ({ onWin, onLose, isDark }) => {
               right: color === 'red' || color === 'green' ? 0 : 'auto'
             }}
           >
-            <div className="text-6xl opacity-20 drop-shadow-xl">{cfg.icon}</div>
-            <p className="text-[10px] font-black uppercase text-white/40 tracking-widest mt-2">{cfg.theme}</p>
+             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-black/10"></div>
+             <div className="relative text-7xl opacity-30 drop-shadow-2xl grayscale brightness-150">{THEMES[color as keyof typeof THEMES][0]}</div>
+             <p className="relative text-[8px] font-black uppercase text-white/50 tracking-[0.2em] mt-2">{cfg.name}</p>
           </div>
         ))}
 
-        {/* Center Roll Area */}
-        <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] z-50 bg-white shadow-2xl rounded-3xl flex flex-col items-center justify-center border-4 border-gray-100 overflow-hidden">
-          <div className="flex gap-2">
-            <div className={`text-3xl ${isRolling ? 'animate-spin' : ''}`}>
+        {/* Path Tracks */}
+        {TRACK_COORDS.map((c, i) => (
+          <div key={i} className={`absolute w-[6.66%] h-[6.66%] border border-black/5 flex items-center justify-center ${SAFE_SQUARES.includes(i) ? 'bg-yellow-200/40' : 'bg-white/40'}`}
+            style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}>
+            {SAFE_SQUARES.includes(i) && <span className="text-[8px] opacity-30">⭐</span>}
+            {/* Special Entry Squares */}
+            {i === START_POS.blue && <div className="absolute inset-1 rounded-sm bg-sky-400/20" />}
+            {i === START_POS.green && <div className="absolute inset-1 rounded-sm bg-emerald-400/20" />}
+          </div>
+        ))}
+
+        {/* Home Stretches */}
+        {Object.entries(HOME_STRETCH).map(([color, cells]) => (
+          cells.map((c, i) => (
+            <div key={`${color}-${i}`} className={`absolute w-[6.66%] h-[6.66%] border border-black/5 ${COLORS[color as keyof typeof COLORS].bg} opacity-50`}
+              style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}
+            />
+          ))
+        ))}
+
+        {/* Center Dice Cup Area */}
+        <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] z-50 bg-white shadow-2xl rounded-3xl flex flex-col items-center justify-center border-4 border-gray-100 overflow-hidden group">
+          <div className={`flex gap-2 transition-transform ${isRolling ? 'scale-125 rotate-12' : ''}`}>
+            <div className={`dice-face w-10 h-10 text-3xl ${isRolling ? 'animate-dice-shake' : ''}`}>
               {['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][dice[0]-1]}
             </div>
-            <div className={`text-3xl ${isRolling ? 'animate-spin' : ''}`}>
+            <div className={`dice-face w-10 h-10 text-3xl ${isRolling ? 'animate-dice-shake' : ''}`}>
               {['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][dice[1]-1]}
             </div>
           </div>
           {turn === 'green' && !hasRolled && !isRolling && !isMoving && (
-            <button onClick={rollDice} className="mt-2 bg-naija-green text-white px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-lg hover:scale-110 active:scale-95 transition-transform">ROLL</button>
+            <button onClick={rollDice} className="mt-2 bg-naija-green text-white px-5 py-2 rounded-full font-black text-[9px] uppercase shadow-lg hover:scale-110 active:scale-95 transition-all animate-pulse">
+              SHAKE CUP
+            </button>
           )}
         </div>
-
-        {/* Path Tracks */}
-        {TRACK_COORDS.map((c, i) => (
-          <div key={i} className={`absolute w-[6.66%] h-[6.66%] border border-gray-200/10 ${SAFE_SQUARES.includes(i) ? 'bg-amber-100/40' : ''}`}
-            style={{ left: `${c.x * 6.66}%`, top: `${c.y * 6.66}%` }}>
-            {SAFE_SQUARES.includes(i) && <span className="absolute inset-0 flex items-center justify-center text-[10px] opacity-20">⭐</span>}
-          </div>
-        ))}
 
         {/* Pieces Layer */}
         {pieces.map(p => {
           const visual = getVisualCoords(p);
           const isUser = p.color === 'green';
-          const canAct = isUser && turn === 'green' && hasRolled && activeDie && !isMoving;
+          const isTurn = turn === 'green';
+          const canAct = isUser && isTurn && hasRolled && activeDie && !isMoving;
           
           return (
             <div key={p.id} onClick={() => handlePieceClick(p)}
-              className={`absolute w-[7%] h-[7%] rounded-full shadow-2xl border-4 border-white transition-all duration-300 ease-out cursor-pointer z-[60] flex items-center justify-center overflow-hidden ${canAct ? 'animate-bounce ring-4 ring-white ring-offset-2' : ''}`}
+              className={`absolute w-[7.5%] h-[7.5%] rounded-full shadow-2xl border-[3px] border-white/80 transition-all duration-300 ease-out cursor-pointer z-[60] flex items-center justify-center piece-shadow ${canAct ? 'animate-bounce ring-4 ring-white/50 ring-offset-2' : 'hover:scale-110'}`}
               style={{
                 left: `${visual.x * 6.66}%`,
                 top: `${visual.y * 6.66}%`,
                 transform: 'translate(-50%, -50%)',
-                backgroundColor: COLORS[p.color].main
+                backgroundColor: COLORS[p.color].main,
+                opacity: p.pos === 58 ? 0.3 : 1
               }}
             >
-              <span className="text-xl drop-shadow-md select-none">{p.icon}</span>
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/10 to-transparent pointer-events-none" />
+              <span className="text-xl select-none">{p.icon}</span>
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none rounded-full" />
             </div>
           );
         })}
       </div>
 
-      {/* Control Buttons */}
+      {/* 3-Button Control Interface */}
       {turn === 'green' && hasRolled && !isMoving && (
         <div className="grid grid-cols-3 gap-4 w-full mt-8 animate-pop">
-          <button onClick={() => setActiveDie('die1')} 
-            className={`py-4 rounded-3xl font-black text-2xl shadow-xl transition-all ${activeDie === 'die1' ? 'bg-naija-green text-white scale-110 ring-4 ring-green-100' : 'bg-white text-gray-500 border border-gray-100'}`}>
-            {dice[0]}
-          </button>
-          <button onClick={() => setActiveDie('die2')} 
-            className={`py-4 rounded-3xl font-black text-2xl shadow-xl transition-all ${activeDie === 'die2' ? 'bg-naija-green text-white scale-110 ring-4 ring-green-100' : 'bg-white text-gray-500 border border-gray-100'}`}>
-            {dice[1]}
-          </button>
-          <button onClick={() => setActiveDie('both')} 
-            className={`py-4 rounded-3xl font-black text-2xl shadow-xl transition-all ${activeDie === 'both' ? 'bg-orange-500 text-white scale-110 ring-4 ring-orange-100' : 'bg-white text-gray-500 border border-gray-100'}`}>
-            {dice[0] + dice[1]}
-          </button>
+          {[
+            { id: 'die1', val: dice[0], label: 'DIE 1' },
+            { id: 'die2', val: dice[1], label: 'DIE 2' },
+            { id: 'both', val: dice[0] + dice[1], label: 'SUM' }
+          ].map(btn => (
+            <button 
+              key={btn.id}
+              onClick={() => setActiveDie(btn.id as any)} 
+              className={`relative py-5 rounded-[30px] font-black shadow-xl transition-all toon-shadow border-4 ${activeDie === btn.id ? 'bg-naija-green text-white border-white scale-110' : 'bg-white text-gray-400 border-gray-100 hover:bg-gray-50'}`}
+            >
+              <span className="block text-2xl tracking-tighter leading-none">{btn.val}</span>
+              <span className="block text-[8px] opacity-60 mt-1 uppercase font-bold">{btn.label}</span>
+              {activeDie === btn.id && (
+                <div className="absolute -top-2 -right-2 bg-yellow-400 text-black rounded-full w-6 h-6 flex items-center justify-center text-[10px] animate-bounce">✓</div>
+              )}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Turn Legend */}
-      <div className="mt-8 flex items-center gap-8 bg-white/50 dark:bg-gray-800/50 px-8 py-4 rounded-full shadow-inner border border-white/20">
-        <div className={`flex items-center gap-3 transition-opacity ${turn === 'green' ? 'opacity-100' : 'opacity-30'}`}>
-          <div className="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow-sm flex items-center justify-center text-[10px]">⚽</div>
-          <span className="font-black text-xs uppercase tracking-widest">USER (9ja)</span>
+      {/* Player Indicators */}
+      <div className="mt-8 flex items-center justify-between w-full px-8 bg-black/5 py-4 rounded-[40px] border border-black/5">
+        <div className={`flex items-center gap-3 transition-all ${turn === 'green' ? 'scale-110' : 'opacity-20 grayscale'}`}>
+           <div className="w-10 h-10 rounded-2xl bg-emerald-500 shadow-lg flex items-center justify-center text-xl">⚽</div>
+           <div className="text-left">
+             <p className="text-[8px] font-bold text-gray-500 uppercase">Current Player</p>
+             <p className="font-black text-xs">CHIDI (YOU)</p>
+           </div>
         </div>
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
-        <div className={`flex items-center gap-3 transition-opacity ${turn === 'blue' ? 'opacity-100' : 'opacity-30'}`}>
-          <div className="w-6 h-6 rounded-full bg-sky-500 border-2 border-white shadow-sm flex items-center justify-center text-[10px]">🥷</div>
-          <span className="font-black text-xs uppercase tracking-widest">AI MASTER</span>
+        <div className="w-px h-8 bg-gray-300"></div>
+        <div className={`flex items-center gap-3 transition-all ${turn === 'blue' ? 'scale-110' : 'opacity-20 grayscale'}`}>
+           <div className="text-right">
+             <p className="text-[8px] font-bold text-gray-500 uppercase">AI Opponent</p>
+             <p className="font-black text-xs">MONEY11 BOT</p>
+           </div>
+           <div className="w-10 h-10 rounded-2xl bg-sky-500 shadow-lg flex items-center justify-center text-xl">🥷</div>
         </div>
       </div>
     </div>

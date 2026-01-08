@@ -15,6 +15,10 @@
             },
             gridTemplateRows: {
               '15': 'repeat(15, minmax(0, 1fr))',
+            },
+            backgroundImage: {
+              'cardboard': "url('https://www.transparenttextures.com/patterns/cardboard-flat.png')",
+              'paper': "url('https://www.transparenttextures.com/patterns/cream-paper.png')",
             }
           }
         }
@@ -25,6 +29,7 @@
         body {
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
         }
         .font-brand {
             font-family: 'Montserrat', sans-serif;
@@ -34,24 +39,45 @@
         .border-naija-green { border-color: #008751; }
 
         @keyframes pop {
-          0% { transform: scale(0.95); }
-          50% { transform: scale(1.05); }
-          100% { transform: scale(1); }
+          0% { transform: scale(0.9); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
         }
-        .animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         
-        @keyframes bounce-short {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
+        @keyframes dice-shake {
+          0%, 100% { transform: rotate(0deg) scale(1); }
+          25% { transform: rotate(10deg) scale(1.1); }
+          75% { transform: rotate(-10deg) scale(1.1); }
         }
-        .animate-bounce-short { animation: bounce-short 1.5s infinite ease-in-out; }
+        .animate-dice-shake { animation: dice-shake 0.2s infinite; }
 
         .toon-shadow {
-          box-shadow: 0 8px 0 rgba(0,0,0,0.1);
+          box-shadow: 0 10px 0 rgba(0,0,0,0.15);
         }
         .toon-shadow:active {
-          box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+          box-shadow: 0 4px 0 rgba(0,0,0,0.15);
           transform: translateY(6px);
+        }
+
+        .board-texture {
+          background-color: #f3f4f6;
+          background-image: url('https://www.transparenttextures.com/patterns/cardboard-flat.png');
+          box-shadow: inset 0 0 40px rgba(0,0,0,0.05);
+        }
+
+        .piece-shadow {
+          filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3));
+        }
+
+        /* 3D-ish Dice Faces */
+        .dice-face {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: white;
+          border-radius: 12px;
+          border-bottom: 4px solid #e5e7eb;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         }
     </style>
 <script type="importmap">
@@ -65,7 +91,7 @@
 }
 </script>
 </head>
-<body class="bg-gray-50 text-gray-900">
+<body class="bg-gray-100 text-gray-900">
     <div id="root"></div>
 </body>
 </html>
