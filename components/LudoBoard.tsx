@@ -113,15 +113,15 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
 
   const audioContext = useRef<AudioContext | null>(null);
 
-  const playSound = (freq: number, type: OscillatorType = 'sine', duration = 0.1) => {
+  const playSound = (freq: number, type: OscillatorType = 'sine', duration = 0.1, volume = 0.1) => {
     try {
       if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = audioContext.current.createOscillator();
       const gain = audioContext.current.createGain();
       osc.type = type;
       osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
-      gain.gain.setValueAtTime(0.1, audioContext.current.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + duration);
+      gain.gain.setValueAtTime(volume, audioContext.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.current.currentTime + duration);
       osc.connect(gain);
       gain.connect(audioContext.current.destination);
       osc.start();
@@ -131,6 +131,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.1;
       utterance.pitch = 1.0;
@@ -194,7 +195,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     
     setIsShakingCup(true);
     setMessage("Shaking...");
-    playSound(200, 'square', 0.4);
+    playSound(150, 'square', 0.4, 0.05);
     speak("Shaking the cup.");
 
     setTimeout(() => {
@@ -204,7 +205,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
       
       const tumbleInterval = setInterval(() => {
         setDice([Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
-        playSound(400 + Math.random() * 200, 'sine', 0.05);
+        playSound(400 + Math.random() * 200, 'sine', 0.05, 0.03);
       }, 80);
 
       setTimeout(() => {
@@ -215,7 +216,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         setDice(finalDice);
         setIsRolling(false);
         setHasRolled(true);
-        playSound(440, 'sine', 0.2);
+        playSound(440, 'sine', 0.2, 0.08);
         speak(`You rolled ${r1} and ${r2}.`);
 
         broadcastEvent('DICE_ROLL', { dice: finalDice });
@@ -269,6 +270,9 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     
     for (let i = 0; i < currentSteps; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
+      // Subtle click sound per step
+      playSound(800 + (i * 5), 'sine', 0.02, 0.04); 
+      
       setPieces(prev => prev.map(p => {
         if (p.id !== pieceId) return p;
         let nextPos = p.pos;
@@ -278,7 +282,6 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
           if (journey === 50) nextPos = 52; 
           else nextPos = (p.pos + 1) % 52;
         } else nextPos += 1;
-        playSound(600 + (i * 10), 'sine', 0.05);
         return { ...p, pos: nextPos };
       }));
     }
@@ -286,7 +289,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     setPieces(prev => {
       const movedPiece = prev.find(p => p.id === pieceId)!;
       if (movedPiece.pos === 58) {
-        playSound(880, 'sine', 0.3);
+        playSound(880, 'sine', 0.3, 0.1);
         speak("Goal! Piece reached home!");
         if (movedPiece.color === myColor) {
            const finished = prev.filter(p => p.color === myColor && p.pos === 58).length + 1;
@@ -307,7 +310,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
         if (victimId) {
           capturedInThisMove = true;
           setCapturedPieceId(victimId);
-          playSound(150, 'sawtooth', 0.4);
+          playSound(150, 'sawtooth', 0.4, 0.08);
           speak("Critical Hit! Captured!");
           setTimeout(() => setCapturedPieceId(null), 1000);
         }
@@ -347,7 +350,7 @@ const LudoBoard: React.FC<LudoBoardProps> = ({
     if (canMove(piece, steps)) {
       await animateMove(piece.id, steps);
     } else {
-      playSound(100, 'square', 0.2);
+      playSound(100, 'square', 0.2, 0.05);
       speak("Invalid move.");
     }
   };
