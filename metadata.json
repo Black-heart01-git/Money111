@@ -1,0 +1,8 @@
+{
+  "name": "MONEY11",
+  "description": "A Nigerian-focused gaming and earning platform featuring classic games like Ludo, Whot, and Ayo Olopon with secure Naira transactions.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
