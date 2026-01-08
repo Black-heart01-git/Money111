@@ -18,101 +18,112 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 py-12">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] px-6 py-12 relative overflow-hidden">
+      {/* Animated Glowing Background Elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-naija-green opacity-20 blur-[120px] rounded-full animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-naija-green opacity-10 blur-[150px] rounded-full"></div>
+      <div className="absolute top-[20%] right-[5%] w-32 h-32 bg-yellow-500 opacity-5 blur-[80px] rounded-full"></div>
+
+      <div className="w-full max-w-md space-y-10 relative z-10">
         <div className="text-center">
-          <div className="mx-auto w-24 h-16 flex mb-6 shadow-xl rounded-lg overflow-hidden border-4 border-white">
+          <div className="mx-auto w-24 h-16 flex mb-6 shadow-[0_0_30px_rgba(0,135,81,0.3)] rounded-lg overflow-hidden border-2 border-white/20">
             <div className="bg-naija-green w-1/3 h-full"></div>
             <div className="bg-white w-1/3 h-full flex items-center justify-center text-2xl">🇳🇬</div>
             <div className="bg-naija-green w-1/3 h-full"></div>
           </div>
-          <h1 className="font-brand font-black text-5xl tracking-tighter text-naija-green">MONEY11</h1>
-          <p className="mt-2 text-sm text-gray-600 font-medium tracking-wide uppercase">Play & Earn Nigeria</p>
+          <h1 className="font-brand font-black text-6xl tracking-tighter text-white drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)]">
+            MONEY<span className="text-naija-green">11</span>
+          </h1>
+          <p className="mt-3 text-sm text-gray-400 font-bold tracking-[0.3em] uppercase">Play & Earn Nigeria</p>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-          <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="bg-white/5 backdrop-blur-2xl p-8 rounded-[40px] shadow-2xl border border-white/10">
+          <form className="space-y-5" onSubmit={handleSubmit}>
             {isRegistering && (
               <>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Full Name</label>
+                <div className="group">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Full Name</label>
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                    className="block w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-naija-green focus:border-transparent transition-all outline-none"
                     placeholder="Chidi Obi"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Phone Number</label>
+                <div className="group">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Phone Number</label>
                   <input
                     type="tel"
                     required
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                    className="block w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-naija-green focus:border-transparent transition-all outline-none"
                     placeholder="080 1234 5678"
                   />
                 </div>
               </>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Email Address</label>
+            <div className="group">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Email Address</label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                className="block w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-naija-green focus:border-transparent transition-all outline-none"
                 placeholder="chidi@example.com"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Password</label>
+            <div className="group">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Password</label>
               <input
                 type="password"
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-naija-green focus:border-naija-green"
+                className="block w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-naija-green focus:border-transparent transition-all outline-none"
                 placeholder="••••••••"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-naija-green text-white py-4 rounded-xl font-bold text-lg hover:bg-opacity-90 transition-all shadow-lg shadow-green-200 mt-4"
+              className="w-full bg-naija-green text-white py-5 rounded-2xl font-black text-xl hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_20px_rgba(0,135,81,0.3)] mt-6 uppercase tracking-wider"
             >
-              {isRegistering ? 'Create Account' : 'Sign In'}
+              {isRegistering ? 'Join the Squad' : 'Enter Arena'}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button
               onClick={() => setIsRegistering(!isRegistering)}
-              className="text-sm font-semibold text-gray-500 hover:text-naija-green transition-colors"
+              className="text-xs font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-widest"
             >
-              {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register Now"}
+              {isRegistering ? 'Already a member? Sign In' : "New player? Create Profile"}
             </button>
           </div>
         </div>
 
         <div className="relative">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-          <div className="relative flex justify-center text-sm"><span className="px-2 bg-gray-50 text-gray-500 uppercase font-bold tracking-widest text-[10px]">Quick Access</span></div>
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+          <div className="relative flex justify-center text-sm"><span className="px-4 bg-[#050505] text-gray-500 uppercase font-black tracking-widest text-[10px]">Fast Lane</span></div>
         </div>
 
         <button
           onClick={() => onLogin({}, true)}
-          className="w-full border-2 border-dashed border-gray-300 text-gray-600 py-4 rounded-xl font-bold hover:border-naija-green hover:text-naija-green transition-all"
+          className="w-full bg-white/5 border-2 border-dashed border-white/10 text-gray-400 py-5 rounded-3xl font-black hover:border-naija-green hover:text-white transition-all uppercase tracking-widest text-xs"
         >
           Continue as Guest
         </button>
+        
+        <p className="text-center text-[10px] text-gray-600 font-bold uppercase tracking-tighter mt-4">
+          By entering, you agree to play responsibly. 🇳🇬
+        </p>
       </div>
     </div>
   );
